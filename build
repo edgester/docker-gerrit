@@ -1,0 +1,3 @@
+#!/bin/bash
+docker rmi edgester/gerrit
+docker build -rm -t edgester/gerrit .
