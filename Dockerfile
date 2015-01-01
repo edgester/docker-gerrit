@@ -1,40 +1,40 @@
 # gerrit
 #
-# VERSION               0.0.1
+# VERSION               0.0.2
 
-FROM  ubuntu
+FROM ubuntu:14.04
 
 MAINTAINER Jason W. Edgecombe <jason@rampaginggek.com>
 
-ENV GERRIT_HOME /home/gerrit/gerrit
+ENV GERRIT_HOME /home/gerrit
+ENV GERRIT_ROOT /home/gerrit/gerrit
 ENV GERRIT_USER gerrit
 ENV GERRIT_WAR /home/gerrit/gerrit.war
 
-RUN echo "deb http://archive.ubuntu.com/ubuntu precise main universe" > /etc/apt/sources.list
-
-# comment out the following line if you don't have a local deb proxy
-RUN IPADDR=$( ip route | grep default | awk '{print $3}' ) ;echo "Acquire::http { Proxy \"http://$IPADDR:3142\"; };"| tee -a /etc/apt/apt.conf.d/01proxy
-
-RUN apt-get update
-RUN apt-get upgrade
+RUN \
+  sed -i 's/# \(.*multiverse$\)/\1/g' /etc/apt/sources.list && \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y sudo vim-tiny git && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y supervisor && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-7-jre-headless
 
 RUN useradd -m $GERRIT_USER
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y openjdk-6-jre-headless sudo git-core supervisor vim-tiny
+RUN mkdir -p $GERRIT_HOME
+RUN chown ${GERRIT_USER}:${GERRIT_USER} $GERRIT_HOME
+
 RUN mkdir -p /var/log/supervisor
 
-ADD http://gerrit-releases.storage.googleapis.com/gerrit-2.7.war /tmp/gerrit.war
+ADD http://gerrit-releases.storage.googleapis.com/gerrit-2.9.war $GERRIT_WAR
 ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN mkdir -p $GERRIT_HOME
-RUN chown ${GERRIT_USER}.${GERRIT_USER} $GERRIT_HOME
-RUN mv /tmp/gerrit.war $GERRIT_WAR
-RUN chown -R ${GERRIT_USER}.${GERRIT_USER} $GERRIT_HOME
-RUN rm -f /etc/apt/apt.conf.d/01proxy
+RUN chown -R ${GERRIT_USER}:${GERRIT_USER} $GERRIT_HOME
 
 USER gerrit
-RUN java -jar $GERRIT_WAR init --batch -d $GERRIT_HOME
+CMD ["/usr/bin/ls","/home/gerrit"]
+RUN java -jar $GERRIT_WAR init --batch -d $GERRIT_ROOT
+RUN chown -R ${GERRIT_USER}:${GERRIT_USER} $GERRIT_ROOT
 
-# clobber the gerrit config. set the URL to localhost:8080
 ADD gerrit.config /home/gerrit/gerrit/etc/gerrit.config
 
 USER root
